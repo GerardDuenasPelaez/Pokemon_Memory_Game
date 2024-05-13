@@ -1,43 +1,60 @@
 import { useContext, useEffect, useState } from "react";
 import GrupoTarjeta from "../componentes/GrupoTarjeta"
 import { ContextoGlobal } from "../context/ContextoGlobal.jsx";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabase/Supabase";
 
 export default function Juego() {
     const [pokemonAletorios, setPokemonsAleatorios] = useState([]);
     const [timeLeft, setTimeLeft] = useState(20);
     const {puntuacion} = useContext(ContextoGlobal)
-
+    const {juego, setJuego} = useContext(ContextoGlobal)
+    
+   
+    const navigate = useNavigate()
+    
     useEffect(() => {
         async function fetchData(){
+
             try {
-                const pokemons = []
-                for(let i = 0; i < 9; i++) {
-                    const random = Math.floor(Math.random() * 151   )
-                    const response = await fetch('https://pokeapi.co/api/v2/pokemon/' + random);
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch data');
-                    }
-                    const data = await response.json();
-
-                    pokemons.push({
-                        id: null,
-                        idPokemon: data.id,
-                        nombre: data.name,
-                        imagen: data.sprites.other['official-artwork'].front_default,
-                        estado: false,
-                        pareja: false,
-                    })
-                }
-                
-                const pokemonDuplicados = [...pokemons, ...pokemons].map((pokemon, index) => ({
-                    ...pokemon,
-                    id: index, 
-                }));
+                const pokemons = [];
+                const url = 'https://pokeapi.co/api/v2/pokemon/';
         
-
-                const pokemonRandom = pokemonDuplicados.sort(() => Math.random() - 0.5);
-                                
-                setPokemonsAleatorios(pokemonRandom);
+                const numeros = [];
+                while (numeros.length < 9) {
+                    const random = Math.floor(Math.random() * 151) + 1;
+                    if (!numeros.includes(random)) {
+                        numeros.push(random);
+                    }
+                }
+        
+                const urlFetch = [];
+                for(let i = 0; i < 9; i++) {
+                    const urlCompleta = new URL(url + numeros[i]);
+                    urlFetch.push(fetch(urlCompleta.href).then(resp => resp.json()));
+                }
+        
+                Promise.all(urlFetch).then(data => {
+                    for(let i = 0; i < 9; i++) {
+                        pokemons.push({
+                            id: null,
+                            idPokemon: data[i].id,
+                            nombre: data[i].name,
+                            imagen: data[i].sprites.other['official-artwork'].front_default,
+                            estado: false,
+                            pareja: false,
+                        });
+                    }
+        
+                    const pokemonDuplicados = [...pokemons, ...pokemons].map((pokemon, index) => ({
+                        ...pokemon,
+                        id: index, 
+                    }));
+        
+                    const pokemonRandom = pokemonDuplicados.sort(() => Math.random() - 0.5);
+        
+                    setPokemonsAleatorios(pokemonRandom);
+                });
             } catch (error) {
                 console.error(error.message);
             } finally {
@@ -45,26 +62,36 @@ export default function Juego() {
             }        
         }
         
+
         fetchData();
     }, []);
 
+
     useEffect(() => {
-
-        const timer = setTimeout(() => {
-          setTimeLeft(prevTime => {
-            if(prevTime <= 1) {
-              clearTimeout(timer);    
-              return 0;
-            } else {
-              return prevTime - 1;
+        const timer = setTimeout(async () => {
+            if (juego) {
+                if (timeLeft > 0) {
+                    setTimeLeft(prevTime => prevTime - 1);
+                } else {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const { data: usu, error: errorUsu } = await supabase
+                        .from('partidas')
+                        .insert([
+                            {
+                                usuario: user.email,
+                                puntuacion: puntuacion,
+                            }
+                        ])
+                        .select();
+                    if (errorUsu) throw new Error(errorUsu.message);
+                    setJuego(false);
+                    navigate('/ranking');
+                }
             }
-          });
         }, 1000);
-
+    
         return () => clearTimeout(timer)
-
-      }, [timeLeft]);
-
+    }, [juego, timeLeft])
     
     const ContadorGlobal = () => {
         const { contadorGlobal } = useContext(ContextoGlobal);
@@ -77,14 +104,16 @@ export default function Juego() {
     }
 
     return (
-
+        <div className="bg-cyan-100 h-screen">
             <div className="container mx-auto">
-                        <h1 className="text-3xl text-center uppercase mt-3">Pokemons Memory</h1>
+                        <h1 className="text-3xl text-center uppercase">POKEMON Memory</h1>
                         <ContadorGlobal />
                         <button className="text-white bg-gray-800 px-4 py-2 rounded mt-4">Tiempo Restante: {timeLeft}s</button>
                         <button className="text-white bg-gray-800 px-4 py-2 rounded ml-4 mt-4">Puntuacion: {puntuacion}</button>
                         <GrupoTarjeta tarjetas={pokemonAletorios} setPokemonsAleatorios={setPokemonsAleatorios}/>
             </div>
+        </div>
+            
 
     )
 }

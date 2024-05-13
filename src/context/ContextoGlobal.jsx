@@ -10,6 +10,8 @@ export function ContextoGlobalProvider ({children}){
     const [contadorGlobal, setContadorGlobal] = useState(0)
     const [puntuacion, setPuntuacion] = useState(0)
     const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const [timeLeft, setTimeLeft] = useState(20)
+    const [juego, setJuego] = useState(false)
     const navigate = useNavigate()
 
     const incrementarContadorGlobal = () => {
@@ -47,6 +49,8 @@ export function ContextoGlobalProvider ({children}){
             isLoggedIn, setIsLoggedIn,
             verSiHaySesionLogeado,
             puntuacion, setPuntuacion,
+            juego, setJuego,
+            timeLeft, setTimeLeft,
         }}>
             {children}
         </ContextoGlobal.Provider>
